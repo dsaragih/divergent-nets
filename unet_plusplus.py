@@ -27,6 +27,9 @@ from torch.autograd import Variable
 from torchsummary import summary
 
 import segmentation_models_pytorch as smp
+import segmentation_models_pytorch.utils.metrics as smp_metrics
+import segmentation_models_pytorch.utils.losses as smp_losses
+import segmentation_models_pytorch.utils.train as smp_train
 
 
 from data.dataset import Dataset
@@ -35,8 +38,6 @@ from data.prepare_data import prepare_data, prepare_test_data
 #from data import PolypsDatasetWithGridEncoding_TestData
 import pyra_pytorch as pyra
 from utils import dice_coeff, iou_pytorch, visualize
-
-import segmentation_models_pytorch as smp
 
 
 #======================================
@@ -56,6 +57,7 @@ parser.add_argument("--py_file",default=os.path.abspath(__file__)) # store curre
 
 # Directory and file handling
 # Directory and file handling
+parser.add_argument("--img_dir", default="/home/daniel/diff-seg/core/guided_diffusion/segmented-images", help="Directory with images")
 parser.add_argument("--train_CSVs", 
                     default=["/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C1.csv",
                     "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C2.csv",
@@ -195,7 +197,7 @@ def train_model(train_loader, valid_loader, model, loss, metrics, optimizer, opt
 
        # create epoch runners 
     # it is a simple loop of iterating over dataloader`s samples
-    train_epoch = smp.utils.train.TrainEpoch(
+    train_epoch = smp_train.TrainEpoch(
         model, 
         loss=loss, 
         metrics=metrics, 
@@ -204,7 +206,7 @@ def train_model(train_loader, valid_loader, model, loss, metrics, optimizer, opt
         verbose=True,
     )
 
-    valid_epoch = smp.utils.train.ValidEpoch(
+    valid_epoch = smp_train.ValidEpoch(
         model, 
         loss=loss, 
         metrics=metrics, 
@@ -230,7 +232,7 @@ def train_model(train_loader, valid_loader, model, loss, metrics, optimizer, opt
             torch.save({"model":model, "epoch": i}, best_chk_path)
             print('Best Model saved!')
             print("Testing....")
-            do_test(opt)
+            # do_test(opt)
             print("Tested")
 
             
@@ -277,7 +279,8 @@ def generate_heatmapts(img_tensor):
 #===============================================
 def prepare_model(opt):
     # model = UNet(n_channels=4, n_classes=1) # 4 = 3 channels + 1 grid encode
-
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
     # create segmentation model with pretrained encoder
     model = smp.UnetPlusPlus(
         encoder_name=opt.encoder,
@@ -299,10 +302,10 @@ def run_train(opt):
 
     train_loader, val_loader = prepare_data(opt, preprocessing_fn=None)
 
-    loss = smp.utils.losses.DiceLoss(ignore_channels=[0])
+    loss = smp_losses.DiceLoss(ignore_channels=[0])
 
     metrics = [
-        smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0]),
+        smp_metrics.IoU(threshold=0.5, ignore_channels=[0]),
     ]
 
     optimizer = torch.optim.Adam([ 
@@ -327,10 +330,10 @@ def run_retrain(opt):
 
     train_loader, val_loader = prepare_data(opt, preprocessing_fn)
 
-    loss = smp.utils.losses.DiceLoss()
+    loss = smp_losses.DiceLoss()
 
     metrics = [
-        smp.utils.metrics.IoU(threshold=0.5),
+        smp_metrics.IoU(threshold=0.5),
     ]
 
     optimizer = torch.optim.Adam([ 
@@ -411,14 +414,14 @@ def check_test_score(opt):
     
     test_dataloader = DataLoader(test_dataset, num_workers=48)
 
-    loss = smp.utils.losses.DiceLoss()
+    loss = smp_losses.DiceLoss()
     # Testing with two class layers
     metrics = [
-        #smp.utils.metrics.IoU(threshold=0.5),
-        smp.utils.metrics.IoU(threshold=0.5, ignore_channels=None),
+        #smp_metrics.IoU(threshold=0.5),
+        smp_metrics.IoU(threshold=0.5, ignore_channels=None),
     ]
 
-    test_epoch = smp.utils.train.ValidEpoch(
+    test_epoch = smp_train.ValidEpoch(
         model=best_model,
         loss=loss,
         metrics=metrics,
@@ -430,13 +433,13 @@ def check_test_score(opt):
     writer.add_text(f"{opt.py_file}-test-score", str(logs), global_step=test_best_epoch)
 
     # Testing with only class layer 1 (polyps)
-    loss = smp.utils.losses.DiceLoss(ignore_channels=[0])
+    loss = smp_losses.DiceLoss(ignore_channels=[0])
     metrics = [
-        #smp.utils.metrics.IoU(threshold=0.5),
-        smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0]),
+        #smp_metrics.IoU(threshold=0.5),
+        smp_metrics.IoU(threshold=0.5, ignore_channels=[0]),
     ]
 
-    test_epoch = smp.utils.train.ValidEpoch(
+    test_epoch = smp_train.ValidEpoch(
         model=best_model,
         loss=loss,
         metrics=metrics,
@@ -451,13 +454,13 @@ def check_test_score(opt):
 
     # Testing with only class layer 0 (BG)
 
-    loss = smp.utils.losses.DiceLoss(ignore_channels=[1])
+    loss = smp_losses.DiceLoss(ignore_channels=[1])
     metrics = [
-        #smp.utils.metrics.IoU(threshold=0.5),
-        smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[1]),
+        #smp_metrics.IoU(threshold=0.5),
+        smp_metrics.IoU(threshold=0.5, ignore_channels=[1]),
     ]
 
-    test_epoch = smp.utils.train.ValidEpoch(
+    test_epoch = smp_train.ValidEpoch(
         model=best_model,
         loss=loss,
         metrics=metrics,
