@@ -5,6 +5,7 @@ import cv2
 from torch.utils.data import DataLoader
 import os
 import numpy as np
+import pickle
 from data.dataset import Dataset
 
 def df_from_csv_file_array(csv_file_arrya):
@@ -32,24 +33,106 @@ def df_from_img_dir(img_dir_path):
     
     return df
 
-def df_from_npz(npz_path):
+def _load_all_pkl_images(pkl_path):
+    with open(pkl_path, "rb") as f:
+        images = pickle.load(f)
+    """
+    images is a dictionary: {img_path: generated images}
+    generated images has shape (N, 256, 256, 4)
+    """
+    paths = []
+    images_arr = []
+    for path, imgs in images.items():
+        paths.append(path)
+        images_arr.append(imgs)
+    images = np.concatenate(images_arr, axis=0)
+    return images
+
+def _load_given_pkl_image(pkl_path, img_path):
+    """
+    Given original image path, load the generated images from the pkl file and return the corresponding batch of images
+    """
+    with open(pkl_path, "rb") as f:
+        images = pickle.load(f)
+
+    pkl_path_dir = os.path.dirname(pkl_path)
+    # Return key with matching basename
+    img_path = os.path.basename(img_path)
+    ims = None
+
+    # This makes sure that the images do not conflict with each other
+    idx = 0
+    for path, imgs in images.items():
+        # img_path is the basename of the path
+        if img_path == os.path.basename(path):
+            # Set idx to the index of path in paths
+            idx = list(images.keys()).index(path) * imgs.shape[0]
+            ims = imgs
+            break
+    if ims is None:
+        raise ValueError("Image not found in pickle file.")
+    
+    img_paths = []
+    mask_paths = []
+    for i, im in enumerate(ims):
+        img = im[:, :, :3]
+        mask = im[:, :, 3]
+        mask = np.where(mask > 128, 255, 0).astype(np.uint8)
+        img_path = os.path.join(pkl_path_dir, "masked-images", str(idx+i) + ".jpg")
+        mask_path = os.path.join(pkl_path_dir, "masks", str(idx+i) + ".jpg")
+        # cv2 expects BGR
+        cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        # mask is one channel
+        cv2.imwrite(mask_path, mask)
+        img_paths.append(img_path)
+        mask_paths.append(mask_path)
+    return img_paths, mask_paths
+    
+
+def augment_train_df(df, pkl_path, n_samples=1):
+    """
+    For each image in df, there's a 50% chance it will be replaced with {n_samples} augmented images.
+    """
+    augmented_df = pd.DataFrame(columns=["image_path", "mask_path"])
+    for i, row in df.iterrows():
+        # 50% chance to augment
+        if np.random.random() < 0.5:
+            print(f"Augmenting image {os.path.basename(row['image_path'])}")
+            img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"])
+            for i in range(n_samples):
+                new_row = pd.Series({"image_path": img_paths[i], "mask_path": mask_paths[i]})
+                augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
+        else:
+            new_row = pd.Series({"image_path": row["image_path"], "mask_path": row["mask_path"]})
+            augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
+    return augmented_df
+
+    
+
+def df_from_pkl(pkl_path):
     """npz_path contains a numpy array of shape (N, H, W, 4), where
     the last dimension is the mask. The first three dimensions are the image.
 
-    First we output .jpg images to a directory, then we use df_from_img_dir
+    Output .jpg images to a directory and return a dataframe with the paths to the images and masks.
     """
+    pkl_path_dir = os.path.dirname(pkl_path)
     df = pd.DataFrame(columns=["image_path", "mask_path"])
-    npz = np.load(npz_path)["arr_0"]
+    images = _load_all_pkl_images(pkl_path)
 
-    for i in range(npz.shape[0]):
-        img = npz[i, :, :, :3]
-        mask = npz[i, :, :, 3]
-        img_path = os.path.join(npz_path, "masked-images", str(i) + ".jpg")
-        mask_path = os.path.join(npz_path, "masks", str(i) + ".jpg")
-        cv2.imwrite(img_path, img)
+    for i, im in enumerate(images):
+        img = im[:, :, :3]
+        mask = im[:, :, 3]
+        mask = np.where(mask > 128, 255, 0).astype(np.uint8)
+        img_path = os.path.join(pkl_path_dir, "masked-images", str(i) + ".jpg")
+        mask_path = os.path.join(pkl_path_dir, "masks", str(i) + ".jpg")
+        # cv2 expects BGR
+        cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        # mask is one channel
         cv2.imwrite(mask_path, mask)
         new_row = pd.Series({"image_path": img_path, "mask_path": mask_path})
         df = pd.concat([df, new_row.to_frame().T], ignore_index=True)
+
+    return df
 
 
 def get_training_augmentation():
@@ -61,10 +144,6 @@ def get_training_augmentation():
 
         albu.PadIfNeeded(min_height=256, min_width=256, always_apply=True, border_mode=0),
         albu.Resize(height=256, width=256, always_apply=True),
-
-        #albu.IAAAdditiveGaussianNoise(p=0.2),
-        #albu.IAAPerspective(p=0.5),
-
         albu.OneOf(
             [
                 albu.CLAHE(p=1),
@@ -72,24 +151,7 @@ def get_training_augmentation():
                 albu.RandomGamma(p=1),
             ],
             p=0.9,
-        ),
-
-        # albu.OneOf(
-        #     [
-        #         albu.IAASharpen(p=1),
-        #         albu.Blur(blur_limit=3, p=1),
-        #         albu.MotionBlur(blur_limit=3, p=1),
-        #     ],
-        #     p=0.9,
-        # ),
-
-        # albu.OneOf(
-        #     [
-        #         albu.RandomContrast(p=1),
-        #         albu.HueSaturationValue(p=1),
-        #     ],
-        #     p=0.9,
-        # ),
+        )
     ]
     return albu.Compose(train_transform)
 
@@ -132,11 +194,16 @@ def get_preprocessing(preprocessing_fn):
 
 
 def prepare_data(opt, preprocessing_fn):
-
-
-    train_val_df = df_from_img_dir(opt.img_dir)
-    train_df = train_val_df.sample(frac=0.8, random_state=0)
-    val_df = train_val_df.drop(train_df.index)
+    """Prepare data for training, testing, and validation.
+    """
+    train_val_test_df = df_from_img_dir(opt.img_dir)
+    # train_val_test_df = df_from_pkl(opt.pkl_path)
+    # 70, 15, 15 split
+    train_df = train_val_test_df.sample(frac=0.7, random_state=0)
+    test_df = train_val_test_df.drop(train_df.index)
+    val_df = test_df.sample(frac=0.5, random_state=0)
+    train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
+    print(train_df.head())
     # train_df = df_from_csv_file_array(opt.train_CSVs)
     # val_df = df_from_csv_file_array(opt.val_CSVs)
 
@@ -158,6 +225,16 @@ def prepare_data(opt, preprocessing_fn):
         classes=opt.classes,
         pyra = opt.pyra
     )
+
+    test_dataset = Dataset(
+        test_df,
+        grid_sizes=opt.grid_sizes_test,
+        augmentation=get_validation_augmentation(), 
+        preprocessing=get_preprocessing(preprocessing_fn),
+        classes=opt.classes,
+        pyra = opt.pyra
+    )
+
     
     # opt.bs = 16, opt.val_bs = 1
     train_loader = DataLoader(train_dataset, batch_size=opt.bs, shuffle=True, num_workers=6)
@@ -167,8 +244,9 @@ def prepare_data(opt, preprocessing_fn):
    
     print("dataset train=", len(train_dataset))
     print("dataset val=", len(valid_dataset))
+    print("Test dataset size=", len(test_dataset))
 
-    return train_loader, valid_loader
+    return train_loader, valid_loader, test_dataset
 
 def prepare_test_data(opt, preprocessing_fn):
 

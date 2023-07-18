@@ -56,8 +56,9 @@ parser.add_argument("--py_file",default=os.path.abspath(__file__)) # store curre
 
 
 # Directory and file handling
-# Directory and file handling
 parser.add_argument("--img_dir", default="/home/daniel/diff-seg/core/guided_diffusion/segmented-images", help="Directory with images")
+parser.add_argument("--pkl_path", required=True, help="Path to the pkl file with generated images")
+parser.add_argument("--n_samples", default=1, type=int, help="Number of augmented samples to generate for each image")
 parser.add_argument("--train_CSVs", 
                     default=["/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C1.csv",
                     "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C2.csv",
@@ -188,7 +189,7 @@ writer = SummaryWriter(tensorboard_exp_dir)
 #==========================================
 # Prepare Data
 #==========================================
-
+train_loader, valid_loader, test_dataset = prepare_data(opt, preprocessing_fn=None)
 
 #================================================
 # Train the model
@@ -272,6 +273,24 @@ def generate_heatmapts(img_tensor):
 
     return fig_list
 
+#==============================================
+# Clear data file
+#==============================================
+def _prep_data_file(pkl_path):
+    pkl_dir = os.path.dirname(pkl_path)
+    # We want to clear pkl_dir/masked-images and pkl_dir/masks
+    masked_dir = os.path.join(pkl_dir, "masked-images")
+    masks_dir = os.path.join(pkl_dir, "masks")
+    # Check if exists
+    if not os.path.exists(masked_dir):
+        os.makedirs(masked_dir)
+    if not os.path.exists(masks_dir):
+        os.makedirs(masks_dir)
+    # Loop over the files in the directories and delete them
+    for file in os.listdir(masked_dir):
+        os.remove(os.path.join(masked_dir, file))
+    for file in os.listdir(masks_dir):
+        os.remove(os.path.join(masks_dir, file))
 
 
 #===============================================
@@ -297,10 +316,11 @@ def prepare_model(opt):
 #====================================
 def run_train(opt):
     model = prepare_model(opt)
+    # Prepare data files for augmentation
+    _prep_data_file(opt.pkl_path)
 
     preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
-
-    train_loader, val_loader = prepare_data(opt, preprocessing_fn=None)
+    # train_loader, val_loader = prepare_data(opt, preprocessing_fn=None) if train_loader is None else (train_loader, val_loader)
 
     loss = smp_losses.DiceLoss(ignore_channels=[0])
 
@@ -312,7 +332,8 @@ def run_train(opt):
         dict(params=model.parameters(), lr=opt.lr),
     ])
 
-    train_model(train_loader, val_loader, model, loss, metrics, optimizer, opt)
+    # train_model(train_loader, val_loader, model, loss, metrics, optimizer, opt)
+
 #====================================
 # Re-train process
 #====================================
@@ -328,7 +349,7 @@ def run_retrain(opt):
 
     preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
 
-    train_loader, val_loader = prepare_data(opt, preprocessing_fn)
+    # train_loader, val_loader = prepare_data(opt, preprocessing_fn) if train_loader is None else (train_loader, val_loader)
 
     loss = smp_losses.DiceLoss()
 
@@ -364,8 +385,8 @@ def do_test(opt):
     print("Model best epoch:", test_epoch)
 
     preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
-    test_dataset = prepare_test_data(opt, preprocessing_fn=None)
-    test_dataset_vis = prepare_test_data(opt, preprocessing_fn=None)
+    # test_dataset = prepare_test_data(opt, preprocessing_fn=None) if test_dataset is None else test_dataset
+    test_dataset_vis = prepare_test_data(opt, preprocessing_fn=None) if test_dataset is None else test_dataset.copy()
     
     
     for i in range(opt.num_test_samples):
@@ -397,9 +418,6 @@ def do_test(opt):
 
 
 def check_test_score(opt):
-
-    
-
     checkpoint_dict = torch.load(os.path.join(CHECKPOINT_DIR, opt.best_checkpoint_name))
 
     test_best_epoch =  checkpoint_dict["epoch"]
@@ -410,7 +428,7 @@ def check_test_score(opt):
     
 
     preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
-    test_dataset = prepare_test_data(opt, preprocessing_fn=preprocessing_fn)
+    # test_dataset = prepare_test_data(opt, preprocessing_fn=preprocessing_fn) if test_dataset is None else test_dataset
     
     test_dataloader = DataLoader(test_dataset, num_workers=48)
 
@@ -476,8 +494,6 @@ def check_test_score(opt):
 
 
 if __name__ == "__main__":
-
-    #data_loaders = prepare_data()
     print(vars(opt))
     print("Test OK")
 
