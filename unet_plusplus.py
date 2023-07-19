@@ -59,6 +59,7 @@ parser.add_argument("--py_file",default=os.path.abspath(__file__)) # store curre
 parser.add_argument("--img_dir", default="/home/daniel/diff-seg/core/guided_diffusion/segmented-images", help="Directory with images")
 parser.add_argument("--pkl_path", required=True, help="Path to the pkl file with generated images")
 parser.add_argument("--n_samples", default=1, type=int, help="Number of augmented samples to generate for each image")
+parser.add_argument("--mode", options=["real_train", "full_syn_train", "aug_syn_train"],  help="Mode to run the code in")
 parser.add_argument("--train_CSVs", 
                     default=["/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C1.csv",
                     "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C2.csv",

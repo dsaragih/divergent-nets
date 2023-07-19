@@ -99,6 +99,8 @@ def augment_train_df(df, pkl_path, n_samples=1):
         if np.random.random() < 0.5:
             print(f"Augmenting image {os.path.basename(row['image_path'])}")
             img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"])
+
+            assert n_samples <= len(img_paths)
             for i in range(n_samples):
                 new_row = pd.Series({"image_path": img_paths[i], "mask_path": mask_paths[i]})
                 augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
@@ -196,13 +198,27 @@ def get_preprocessing(preprocessing_fn):
 def prepare_data(opt, preprocessing_fn):
     """Prepare data for training, testing, and validation.
     """
-    train_val_test_df = df_from_img_dir(opt.img_dir)
-    # train_val_test_df = df_from_pkl(opt.pkl_path)
-    # 70, 15, 15 split
-    train_df = train_val_test_df.sample(frac=0.7, random_state=0)
-    test_df = train_val_test_df.drop(train_df.index)
-    val_df = test_df.sample(frac=0.5, random_state=0)
-    train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
+    if opt.mode == "aug_syn_train":
+        train_val_test_df = df_from_img_dir(opt.img_dir)
+        # train_val_test_df = df_from_pkl(opt.pkl_path)
+        # 70, 15, 15 split
+        train_df = train_val_test_df.sample(frac=0.7, random_state=0)
+        test_df = train_val_test_df.drop(train_df.index)
+        val_df = test_df.sample(frac=0.5, random_state=0)
+        train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
+    elif opt.mode == "full_syn_train":
+        train_val_test_df = df_from_pkl(opt.pkl_path)
+        # 70, 15, 15 split
+        train_df = train_val_test_df.sample(frac=0.7, random_state=0)
+        test_df = train_val_test_df.drop(train_df.index)
+        val_df = test_df.sample(frac=0.5, random_state=0)
+    elif opt.mode == "real_train":
+        train_val_test_df = df_from_img_dir(opt.img_dir)
+        # 70, 15, 15 split
+        train_df = train_val_test_df.sample(frac=0.7, random_state=0)
+        test_df = train_val_test_df.drop(train_df.index)
+        val_df = test_df.sample(frac=0.5, random_state=0)
+        
     print(train_df.head())
     # train_df = df_from_csv_file_array(opt.train_CSVs)
     # val_df = df_from_csv_file_array(opt.val_CSVs)
