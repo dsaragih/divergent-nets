@@ -38,6 +38,7 @@ from data.prepare_data import prepare_data, prepare_test_data
 #from data import PolypsDatasetWithGridEncoding_TestData
 import pyra_pytorch as pyra
 from utils import dice_coeff, iou_pytorch, visualize
+import copy
 
 
 #======================================
@@ -57,9 +58,10 @@ parser.add_argument("--py_file",default=os.path.abspath(__file__)) # store curre
 
 # Directory and file handling
 parser.add_argument("--img_dir", default="/home/daniel/diff-seg/core/guided_diffusion/segmented-images", help="Directory with images")
+parser.add_argument("--test_dir", default="/home/daniel/divergent-nets/data/data_files/test-images", help="Directory with test images")
 parser.add_argument("--pkl_path", required=True, help="Path to the pkl file with generated images")
 parser.add_argument("--n_samples", default=1, type=int, help="Number of augmented samples to generate for each image")
-parser.add_argument("--mode", options=["real_train", "full_syn_train", "aug_syn_train"],  help="Mode to run the code in")
+parser.add_argument("--mode", choices=["real_train", "full_syn_train", "aug_syn_train"],  help="Mode to run the code in")
 parser.add_argument("--train_CSVs", 
                     default=["/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C1.csv",
                     "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C2.csv",
@@ -190,12 +192,31 @@ writer = SummaryWriter(tensorboard_exp_dir)
 #==========================================
 # Prepare Data
 #==========================================
-train_loader, valid_loader, test_dataset = prepare_data(opt, preprocessing_fn=None)
+# Clear data file
+def _prep_data_file(pkl_path):
+    pkl_dir = os.path.dirname(pkl_path)
+    # We want to clear pkl_dir/masked-images and pkl_dir/masks
+    masked_dir = os.path.join(pkl_dir, "masked-images")
+    masks_dir = os.path.join(pkl_dir, "masks")
+    # Check if exists
+    if not os.path.exists(masked_dir):
+        os.makedirs(masked_dir)
+    if not os.path.exists(masks_dir):
+        os.makedirs(masks_dir)
+    # Loop over the files in the directories and delete them
+    for file in os.listdir(masked_dir):
+        os.remove(os.path.join(masked_dir, file))
+    for file in os.listdir(masks_dir):
+        os.remove(os.path.join(masks_dir, file))
+
+_prep_data_file(opt.pkl_path)
+
+train_loader, val_loader, test_dataset = prepare_data(opt, preprocessing_fn=None)
 
 #================================================
 # Train the model
 #================================================
-def train_model(train_loader, valid_loader, model, loss, metrics, optimizer, opt):
+def train_model(train_loader, val_loader, model, loss, metrics, optimizer, opt):
 
        # create epoch runners 
     # it is a simple loop of iterating over dataloader`s samples
@@ -226,7 +247,7 @@ def train_model(train_loader, valid_loader, model, loss, metrics, optimizer, opt
         
         print('\nEpoch: {}'.format(i))
         train_logs = train_epoch.run(train_loader)
-        valid_logs = valid_epoch.run(valid_loader)
+        valid_logs = valid_epoch.run(val_loader)
         
         # do something (save model, change lr, etc.)
         if max_score < valid_logs['iou_score']:
@@ -234,7 +255,7 @@ def train_model(train_loader, valid_loader, model, loss, metrics, optimizer, opt
             torch.save({"model":model, "epoch": i}, best_chk_path)
             print('Best Model saved!')
             print("Testing....")
-            # do_test(opt)
+            do_test(opt)
             print("Tested")
 
             
@@ -274,25 +295,6 @@ def generate_heatmapts(img_tensor):
 
     return fig_list
 
-#==============================================
-# Clear data file
-#==============================================
-def _prep_data_file(pkl_path):
-    pkl_dir = os.path.dirname(pkl_path)
-    # We want to clear pkl_dir/masked-images and pkl_dir/masks
-    masked_dir = os.path.join(pkl_dir, "masked-images")
-    masks_dir = os.path.join(pkl_dir, "masks")
-    # Check if exists
-    if not os.path.exists(masked_dir):
-        os.makedirs(masked_dir)
-    if not os.path.exists(masks_dir):
-        os.makedirs(masks_dir)
-    # Loop over the files in the directories and delete them
-    for file in os.listdir(masked_dir):
-        os.remove(os.path.join(masked_dir, file))
-    for file in os.listdir(masks_dir):
-        os.remove(os.path.join(masks_dir, file))
-
 
 #===============================================
 # Prepare models
@@ -318,7 +320,6 @@ def prepare_model(opt):
 def run_train(opt):
     model = prepare_model(opt)
     # Prepare data files for augmentation
-    _prep_data_file(opt.pkl_path)
 
     preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
     # train_loader, val_loader = prepare_data(opt, preprocessing_fn=None) if train_loader is None else (train_loader, val_loader)
@@ -332,8 +333,11 @@ def run_train(opt):
     optimizer = torch.optim.Adam([ 
         dict(params=model.parameters(), lr=opt.lr),
     ])
-
-    # train_model(train_loader, val_loader, model, loss, metrics, optimizer, opt)
+    train_model(train_loader, val_loader, model, loss, metrics, optimizer, opt)
+    print("Training completed")
+    print("Checking test scores...")
+    check_test_score(opt)
+    
 
 #====================================
 # Re-train process
@@ -387,7 +391,7 @@ def do_test(opt):
 
     preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
     # test_dataset = prepare_test_data(opt, preprocessing_fn=None) if test_dataset is None else test_dataset
-    test_dataset_vis = prepare_test_data(opt, preprocessing_fn=None) if test_dataset is None else test_dataset.copy()
+    test_dataset_vis = prepare_test_data(opt, preprocessing_fn=None) if test_dataset is None else copy.deepcopy(test_dataset)
     
     
     for i in range(opt.num_test_samples):
@@ -431,7 +435,7 @@ def check_test_score(opt):
     preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
     # test_dataset = prepare_test_data(opt, preprocessing_fn=preprocessing_fn) if test_dataset is None else test_dataset
     
-    test_dataloader = DataLoader(test_dataset, num_workers=48)
+    test_dataloader = DataLoader(test_dataset, num_workers=4)
 
     loss = smp_losses.DiceLoss()
     # Testing with two class layers

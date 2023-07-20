@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pkl
+*.png
+*.jpg
 # C extensions
 *.so
 

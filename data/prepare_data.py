@@ -19,7 +19,7 @@ def df_from_csv_file_array(csv_file_arrya):
 
     return df
 
-def df_from_img_dir(img_dir_path):
+def df_from_img_dir(img_dir_path, n=None):
     # img_dir_path contains two directories: images and masks
     # each directory contains images with the same name
     # e.g. img_dir_path/images/1.png and img_dir_path/masks/1.png
@@ -27,13 +27,17 @@ def df_from_img_dir(img_dir_path):
 
     df = pd.DataFrame(columns=["image_path", "mask_path"])
     mask_path = os.path.join(img_dir_path, "masks")
-    for img in os.listdir(os.path.join(img_dir_path, "masked-images")):
+    if n is not None:
+        iter_list = os.listdir(os.path.join(img_dir_path, "masked-images"))[:n]
+    else:
+        iter_list = os.listdir(os.path.join(img_dir_path, "masked-images"))
+    for img in iter_list:
         new_row = pd.Series({"image_path": os.path.join(img_dir_path, "masked-images", img), "mask_path": os.path.join(mask_path, img)})
         df = pd.concat([df, new_row.to_frame().T], ignore_index=True)
     
     return df
 
-def _load_all_pkl_images(pkl_path):
+def _load_all_pkl_images(pkl_path, idx=None):
     with open(pkl_path, "rb") as f:
         images = pickle.load(f)
     """
@@ -43,9 +47,14 @@ def _load_all_pkl_images(pkl_path):
     paths = []
     images_arr = []
     for path, imgs in images.items():
-        paths.append(path)
-        images_arr.append(imgs)
+        choice = np.expand_dims(imgs[idx], axis=0) if idx is not None else imgs
+        paths.extend([path] * len(choice))
+        images_arr.append(choice)
     images = np.concatenate(images_arr, axis=0)
+    # If mean < 128, multiply by 255
+    images_mean = np.mean(images)
+    if images_mean < 1: # heuristic to determine if images are in [0, 1] or [0, 255]
+        images *= 255
     return images
 
 def _load_given_pkl_image(pkl_path, img_path):
@@ -74,6 +83,8 @@ def _load_given_pkl_image(pkl_path, img_path):
     
     img_paths = []
     mask_paths = []
+    if np.mean(ims) < 1: # heuristic to determine if images are in [0, 1] or [0, 255]
+        ims *= 255
     for i, im in enumerate(ims):
         img = im[:, :, :3]
         mask = im[:, :, 3]
@@ -111,7 +122,7 @@ def augment_train_df(df, pkl_path, n_samples=1):
 
     
 
-def df_from_pkl(pkl_path):
+def df_from_pkl(pkl_path, idx=None):
     """npz_path contains a numpy array of shape (N, H, W, 4), where
     the last dimension is the mask. The first three dimensions are the image.
 
@@ -119,7 +130,7 @@ def df_from_pkl(pkl_path):
     """
     pkl_path_dir = os.path.dirname(pkl_path)
     df = pd.DataFrame(columns=["image_path", "mask_path"])
-    images = _load_all_pkl_images(pkl_path)
+    images = _load_all_pkl_images(pkl_path, idx)
 
     for i, im in enumerate(images):
         img = im[:, :, :3]
@@ -199,26 +210,24 @@ def prepare_data(opt, preprocessing_fn):
     """Prepare data for training, testing, and validation.
     """
     if opt.mode == "aug_syn_train":
-        train_val_test_df = df_from_img_dir(opt.img_dir)
-        # train_val_test_df = df_from_pkl(opt.pkl_path)
-        # 70, 15, 15 split
-        train_df = train_val_test_df.sample(frac=0.7, random_state=0)
-        test_df = train_val_test_df.drop(train_df.index)
-        val_df = test_df.sample(frac=0.5, random_state=0)
+        train_val_df = df_from_img_dir(opt.img_dir)
+        # 80, 20 split
+        train_df = train_val_df.sample(frac=0.8, random_state=0)
+        val_df = train_val_df.drop(train_df.index)
         train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
     elif opt.mode == "full_syn_train":
-        train_val_test_df = df_from_pkl(opt.pkl_path)
-        # 70, 15, 15 split
-        train_df = train_val_test_df.sample(frac=0.7, random_state=0)
-        test_df = train_val_test_df.drop(train_df.index)
-        val_df = test_df.sample(frac=0.5, random_state=0)
+        train_val_df = df_from_pkl(opt.pkl_path, idx=0)
+        train_df = train_val_df.sample(frac=0.8, random_state=0)
+        val_df = train_val_df.drop(train_df.index)
+
     elif opt.mode == "real_train":
-        train_val_test_df = df_from_img_dir(opt.img_dir)
-        # 70, 15, 15 split
-        train_df = train_val_test_df.sample(frac=0.7, random_state=0)
-        test_df = train_val_test_df.drop(train_df.index)
-        val_df = test_df.sample(frac=0.5, random_state=0)
+        train_val_df = df_from_img_dir(opt.img_dir)
+        # 80, 20 split
+        train_df = train_val_df.sample(frac=0.8, random_state=0)
+        val_df = train_val_df.drop(train_df.index)
         
+    len_val = len(val_df)
+    test_dataset = prepare_test_data(opt, preprocessing_fn, len_val)
     print(train_df.head())
     # train_df = df_from_csv_file_array(opt.train_CSVs)
     # val_df = df_from_csv_file_array(opt.val_CSVs)
@@ -242,15 +251,6 @@ def prepare_data(opt, preprocessing_fn):
         pyra = opt.pyra
     )
 
-    test_dataset = Dataset(
-        test_df,
-        grid_sizes=opt.grid_sizes_test,
-        augmentation=get_validation_augmentation(), 
-        preprocessing=get_preprocessing(preprocessing_fn),
-        classes=opt.classes,
-        pyra = opt.pyra
-    )
-
     
     # opt.bs = 16, opt.val_bs = 1
     train_loader = DataLoader(train_dataset, batch_size=opt.bs, shuffle=True, num_workers=6)
@@ -261,12 +261,12 @@ def prepare_data(opt, preprocessing_fn):
     print("dataset train=", len(train_dataset))
     print("dataset val=", len(valid_dataset))
     print("Test dataset size=", len(test_dataset))
-
+    print("train_loader shape:", next(iter(train_loader))[0].shape)
     return train_loader, valid_loader, test_dataset
 
-def prepare_test_data(opt, preprocessing_fn):
+def prepare_test_data(opt, preprocessing_fn, n):
 
-    test_df = df_from_csv_file_array(opt.test_CSVs)
+    test_df = df_from_img_dir(opt.test_dir, n=n)
 
     # test dataset without transformations for image visualization
     test_dataset = Dataset(
