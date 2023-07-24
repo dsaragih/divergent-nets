@@ -27,10 +27,9 @@ def df_from_img_dir(img_dir_path, n=None):
 
     df = pd.DataFrame(columns=["image_path", "mask_path"])
     mask_path = os.path.join(img_dir_path, "masks")
+    dir_list = list(sorted(os.listdir(os.path.join(img_dir_path, "masked-images"))))
     if n is not None:
-        iter_list = os.listdir(os.path.join(img_dir_path, "masked-images"))[:n]
-    else:
-        iter_list = os.listdir(os.path.join(img_dir_path, "masked-images"))
+        iter_list = dir_list[:n]
     for img in iter_list:
         new_row = pd.Series({"image_path": os.path.join(img_dir_path, "masked-images", img), "mask_path": os.path.join(mask_path, img)})
         df = pd.concat([df, new_row.to_frame().T], ignore_index=True)
@@ -47,7 +46,9 @@ def _load_all_pkl_images(pkl_path, idx=None):
     paths = []
     images_arr = []
     for path, imgs in images.items():
-        choice = np.expand_dims(imgs[idx], axis=0) if idx is not None else imgs
+        choice = imgs[idx]
+        if len(choice.shape) == 3:
+            choice = np.expand_dims(choice, axis=0)
         paths.extend([path] * len(choice))
         images_arr.append(choice)
     images = np.concatenate(images_arr, axis=0)
@@ -123,8 +124,10 @@ def augment_train_df(df, pkl_path, n_samples=1):
     
 
 def df_from_pkl(pkl_path, idx=None):
-    """npz_path contains a numpy array of shape (N, H, W, 4), where
+    """pkl_path contains a numpy array of shape (N, H, W, 4), where
     the last dimension is the mask. The first three dimensions are the image.
+
+    NOTE: idx may be an array of indices, in which case the function will return a dataframe where, starting from the first index in idx, {len(idx)} consecutive indices are samples from the same image.
 
     Output .jpg images to a directory and return a dataframe with the paths to the images and masks.
     """
@@ -216,7 +219,7 @@ def prepare_data(opt, preprocessing_fn):
         val_df = train_val_df.drop(train_df.index)
         train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
     elif opt.mode == "full_syn_train":
-        train_val_df = df_from_pkl(opt.pkl_path, idx=0)
+        train_val_df = df_from_pkl(opt.pkl_path, idx=[0, 1])
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
 
@@ -266,7 +269,7 @@ def prepare_data(opt, preprocessing_fn):
 
 def prepare_test_data(opt, preprocessing_fn, n):
 
-    test_df = df_from_img_dir(opt.test_dir, n=n)
+    test_df = df_from_img_dir(opt.test_dir, 200)
 
     # test dataset without transformations for image visualization
     test_dataset = Dataset(
@@ -277,7 +280,5 @@ def prepare_test_data(opt, preprocessing_fn, n):
         classes=opt.classes,
         pyra = opt.pyra
     )
-
-    print("Test dataset size=", len(test_dataset))
 
     return test_dataset

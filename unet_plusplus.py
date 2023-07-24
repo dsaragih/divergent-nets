@@ -25,6 +25,7 @@ from torchvision.utils import save_image
 from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 from torchsummary import summary
+import datetime
 
 import segmentation_models_pytorch as smp
 import segmentation_models_pytorch.utils.metrics as smp_metrics
@@ -62,46 +63,6 @@ parser.add_argument("--test_dir", help="Directory with test images")
 parser.add_argument("--pkl_path", required=True, help="Path to the pkl file with generated images")
 parser.add_argument("--n_samples", default=1, type=int, help="Number of augmented samples to generate for each image")
 parser.add_argument("--mode", choices=["real_train", "full_syn_train", "aug_syn_train"],  help="Mode to run the code in")
-parser.add_argument("--train_CSVs", 
-                    default=["/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C1.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C2.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C3.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C4.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/C5.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq1_neg.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq2_neg.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq3_neg.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq4_neg.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq5_neg.csv"],
-                    help="CSV file list with image and mask paths")
-
-parser.add_argument("--val_CSVs",
-                    default=["/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq1.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq2.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq3.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq4.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq5.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq6.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq7.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq8.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq9.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq10.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq11.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq12.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq13.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq14.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq15.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq6_neg.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq7_neg.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq8_neg.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq9_neg.csv",
-                    "/work/vajira/data/EndoCV_2021/CSV_file_with_paths_new_v2/seq10_neg.csv"],
-                    help="CSV file list with image and mask paths")
-
-parser.add_argument("--test_CSVs",
-                    default=["/work/vajira/data/EndoCV_2021/CSV_file_with_paths/kvasir_seg.csv"],
-                    help="CSV file list with image and mask paths")
-
 parser.add_argument("--out_dir", 
                     default="/work/vajira/DATA/EndoCV_2021/temp_checkpoints",
                     help="Main output dierectory")
@@ -150,11 +111,6 @@ parser.add_argument("--lr_sch_patience", type=int, default=25, help="Num of epoc
 parser.add_argument("--num_samples", type=int, default=5, help="Number of samples to print from validation set")
 parser.add_argument("action", type=str, help="Select an action to run", choices=["train", "retrain", "test", "check"])
 parser.add_argument("--checkpoint_interval", type=int, default=25, help="Interval to save checkpoint models")
-#parser.add_argument("--fold", type=str, default="fold_1", help="Select the validation fold", choices=["fold_1", "fold_2", "fold_3"])
-#parser.add_argument("--num_test", default= 200, type=int, help="Number of samples to test set from 1k dataset")
-#parser.add_argument("--model_path", default="", help="Model path to load weights")
-#parser.add_argument("--num_of_samples", default=30, type=int, help="Number of samples to validate (Montecalo sampling)")
-
 opt = parser.parse_args()
 
 
@@ -180,9 +136,9 @@ CHECKPOINT_DIR = os.path.join(opt.out_dir, py_file_name + "/checkpoints")
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 # make tensorboard subdirectory for the experiment
-tensorboard_exp_dir = os.path.join(opt.tensorboard_dir, py_file_name)
-os.makedirs( tensorboard_exp_dir, exist_ok=True)
-
+tensorboard_exp_dir = os.path.join(opt.tensorboard_dir, py_file_name, datetime.datetime.now().strftime("tb-%Y-%m-%d-%H-%M"))
+os.makedirs(tensorboard_exp_dir, exist_ok=True)
+print("Tensorboard directory:", tensorboard_exp_dir)
 #==========================================
 # Tensorboard
 #==========================================
