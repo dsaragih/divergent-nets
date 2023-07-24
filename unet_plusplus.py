@@ -57,8 +57,8 @@ parser.add_argument("--py_file",default=os.path.abspath(__file__)) # store curre
 
 
 # Directory and file handling
-parser.add_argument("--img_dir", default="/home/daniel/diff-seg/core/guided_diffusion/segmented-images", help="Directory with images")
-parser.add_argument("--test_dir", default="/home/daniel/divergent-nets/data/data_files/test-images", help="Directory with test images")
+parser.add_argument("--img_dir", help="Directory with images")
+parser.add_argument("--test_dir", help="Directory with test images")
 parser.add_argument("--pkl_path", required=True, help="Path to the pkl file with generated images")
 parser.add_argument("--n_samples", default=1, type=int, help="Number of augmented samples to generate for each image")
 parser.add_argument("--mode", choices=["real_train", "full_syn_train", "aug_syn_train"],  help="Mode to run the code in")
