@@ -29,8 +29,8 @@ def df_from_img_dir(img_dir_path, n=None):
     mask_path = os.path.join(img_dir_path, "masks")
     dir_list = list(sorted(os.listdir(os.path.join(img_dir_path, "masked-images"))))
     if n is not None:
-        iter_list = dir_list[:n]
-    for img in iter_list:
+        dir_list = dir_list[:n]
+    for img in dir_list:
         new_row = pd.Series({"image_path": os.path.join(img_dir_path, "masked-images", img), "mask_path": os.path.join(mask_path, img)})
         df = pd.concat([df, new_row.to_frame().T], ignore_index=True)
     
@@ -82,6 +82,7 @@ def _load_given_pkl_image(pkl_path, img_path):
     if ims is None:
         raise ValueError("Image not found in pickle file.")
     
+    # Paths like (i.jpg, i+1.jpg, ..., i+n-1.jpg), n = imgs.shape[0]
     img_paths = []
     mask_paths = []
     if np.mean(ims) < 1: # heuristic to determine if images are in [0, 1] or [0, 255]
@@ -106,19 +107,24 @@ def augment_train_df(df, pkl_path, n_samples=1):
     For each image in df, there's a 50% chance it will be replaced with {n_samples} augmented images.
     """
     augmented_df = pd.DataFrame(columns=["image_path", "mask_path"])
+    aug_counter = 0
     for i, row in df.iterrows():
         # 50% chance to augment
         if np.random.random() < 0.5:
-            print(f"Augmenting image {os.path.basename(row['image_path'])}")
             img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"])
-
+            print(f"Augmenting image {os.path.basename(row['image_path'])}")
+            print(f"Replacing with {n_samples} augmented images, starting at {os.path.basename(img_paths[0])}")
             assert n_samples <= len(img_paths)
+
+            aug_counter += 1
             for i in range(n_samples):
                 new_row = pd.Series({"image_path": img_paths[i], "mask_path": mask_paths[i]})
                 augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
         else:
             new_row = pd.Series({"image_path": row["image_path"], "mask_path": row["mask_path"]})
             augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
+
+    print(f"Augmented {aug_counter} images.")
     return augmented_df
 
     
@@ -219,7 +225,7 @@ def prepare_data(opt, preprocessing_fn):
         val_df = train_val_df.drop(train_df.index)
         train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
     elif opt.mode == "full_syn_train":
-        train_val_df = df_from_pkl(opt.pkl_path, idx=[0, 1])
+        train_val_df = df_from_pkl(opt.pkl_path, idx=0)
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
 
@@ -231,11 +237,10 @@ def prepare_data(opt, preprocessing_fn):
         
     len_val = len(val_df)
     test_dataset = prepare_test_data(opt, preprocessing_fn, len_val)
-    print(train_df.head())
     # train_df = df_from_csv_file_array(opt.train_CSVs)
     # val_df = df_from_csv_file_array(opt.val_CSVs)
 
-
+    # Set augmentation = get_validation_augmentation() for no data augmentation
     train_dataset = Dataset(
         train_df,
         grid_sizes=opt.grid_sizes_train,
