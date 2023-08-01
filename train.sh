@@ -12,8 +12,9 @@ python unet_plusplus.py train \
     --num_epochs 150 \
     --device_id 0  \
     --mode "aug_syn_train" \
-    --img_dir "/home/daniel/diff-seg/core/guided_diffusion/segmented-images" \
-    --pkl_path "/home/daniel/divergent-nets/data/data_files/GAN_dict.pkl" \
+    --img_dir "/home/daniel/diffusion-gen/guided_diffusion/segmented-images" \
+    --pkl_path "/home/daniel/divergent-nets/data/data_files/cc_styled_samples.pkl" \
+    --test_dir "/home/daniel/divergent-nets/data/data_files/test-images" \
     --n_samples 1 \
     --out_dir ./outputs/ \
     --tensorboard_dir ./outputs/ 

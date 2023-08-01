@@ -36,13 +36,15 @@ def df_from_img_dir(img_dir_path, n=None):
     
     return df
 
-def _load_all_pkl_images(pkl_path, idx=None):
+def _load_all_pkl_images(pkl_path, n_samples=1):
     with open(pkl_path, "rb") as f:
         images = pickle.load(f)
     """
     images is a dictionary: {img_path: generated images}
     generated images has shape (N, 256, 256, 4)
     """
+    first = list(images.values())[0]
+    idx = np.random.randint(0, first.shape[0], size=n_samples)
     paths = []
     images_arr = []
     for path, imgs in images.items():
@@ -58,12 +60,13 @@ def _load_all_pkl_images(pkl_path, idx=None):
         images *= 255
     return images
 
-def _load_given_pkl_image(pkl_path, img_path):
+def _load_given_pkl_image(pkl_path, img_path, images=None):
     """
     Given original image path, load the generated images from the pkl file and return the corresponding batch of images
     """
-    with open(pkl_path, "rb") as f:
-        images = pickle.load(f)
+    if images is None:
+        with open(pkl_path, "rb") as f:
+            images = pickle.load(f)
 
     pkl_path_dir = os.path.dirname(pkl_path)
     # Return key with matching basename
@@ -108,28 +111,31 @@ def augment_train_df(df, pkl_path, n_samples=1):
     """
     augmented_df = pd.DataFrame(columns=["image_path", "mask_path"])
     aug_counter = 0
+    with open(pkl_path, "rb") as f:
+        images = pickle.load(f)
     for i, row in df.iterrows():
         # 50% chance to augment
-        if np.random.random() < 0.5:
-            img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"])
+        if np.random.random() < 0.9:
+            img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"], images)
             print(f"Augmenting image {os.path.basename(row['image_path'])}")
             print(f"Replacing with {n_samples} augmented images, starting at {os.path.basename(img_paths[0])}")
-            assert n_samples <= len(img_paths)
 
+            assert n_samples <= len(img_paths)
+            iters = np.random.randint(0, len(img_paths), size=n_samples)
             aug_counter += 1
-            for i in range(n_samples):
+            for i in iters:
                 new_row = pd.Series({"image_path": img_paths[i], "mask_path": mask_paths[i]})
                 augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
         else:
             new_row = pd.Series({"image_path": row["image_path"], "mask_path": row["mask_path"]})
             augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
 
-    print(f"Augmented {aug_counter} images.")
+    print(f"Augmented {aug_counter * n_samples} images.")
     return augmented_df
 
     
 
-def df_from_pkl(pkl_path, idx=None):
+def df_from_pkl(pkl_path, n_samples=1):
     """pkl_path contains a numpy array of shape (N, H, W, 4), where
     the last dimension is the mask. The first three dimensions are the image.
 
@@ -139,7 +145,7 @@ def df_from_pkl(pkl_path, idx=None):
     """
     pkl_path_dir = os.path.dirname(pkl_path)
     df = pd.DataFrame(columns=["image_path", "mask_path"])
-    images = _load_all_pkl_images(pkl_path, idx)
+    images = _load_all_pkl_images(pkl_path, n_samples)
 
     for i, im in enumerate(images):
         img = im[:, :, :3]
@@ -218,6 +224,7 @@ def get_preprocessing(preprocessing_fn):
 def prepare_data(opt, preprocessing_fn):
     """Prepare data for training, testing, and validation.
     """
+    np.random.seed(0)
     if opt.mode == "aug_syn_train":
         train_val_df = df_from_img_dir(opt.img_dir)
         # 80, 20 split
@@ -225,7 +232,7 @@ def prepare_data(opt, preprocessing_fn):
         val_df = train_val_df.drop(train_df.index)
         train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
     elif opt.mode == "full_syn_train":
-        train_val_df = df_from_pkl(opt.pkl_path, idx=0)
+        train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
 
