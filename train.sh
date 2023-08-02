@@ -3,7 +3,8 @@ python unet_plusplus.py train \
     --num_epochs 150 \
     --device_id 0  \
     --mode "real_train" \
-    --img_dir "/home/daniel/diff-seg/core/guided_diffusion/segmented-images" \
+    --img_dir "/home/daniel/diffusion-gen/guided_diffusion/segmented-images" \
+    --test_dir "/home/daniel/divergent-nets/data/data_files/test-images" \
     --pkl_path "/home/daniel/divergent-nets/data/data_files/GAN_dict.pkl" \
     --out_dir ./outputs/ \
     --tensorboard_dir ./outputs/ 

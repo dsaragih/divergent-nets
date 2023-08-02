@@ -115,7 +115,7 @@ def augment_train_df(df, pkl_path, n_samples=1):
         images = pickle.load(f)
     for i, row in df.iterrows():
         # 50% chance to augment
-        if np.random.random() < 0.9:
+        if np.random.random() < 0.5:
             img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"], images)
             print(f"Augmenting image {os.path.basename(row['image_path'])}")
             print(f"Replacing with {n_samples} augmented images, starting at {os.path.basename(img_paths[0])}")
@@ -230,17 +230,27 @@ def prepare_data(opt, preprocessing_fn):
         # 80, 20 split
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
+        # Take small sample for training
+        train_df = train_df.sample(n=64, random_state=0)
         train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
     elif opt.mode == "full_syn_train":
         train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
-
+    elif opt.mode == "app_syn_train":
+        train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
+        # Append real images
+        real_df = df_from_img_dir(opt.img_dir)
+        train_val_df = pd.concat([train_val_df, real_df], ignore_index=True)
+        train_df = train_val_df.sample(frac=0.8, random_state=0)
+        val_df = train_val_df.drop(train_df.index)
     elif opt.mode == "real_train":
         train_val_df = df_from_img_dir(opt.img_dir)
         # 80, 20 split
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
+        # Take small sample for training
+        train_df = train_df.sample(n=64, random_state=0)
         
     len_val = len(val_df)
     test_dataset = prepare_test_data(opt, preprocessing_fn, len_val)
@@ -251,7 +261,7 @@ def prepare_data(opt, preprocessing_fn):
     train_dataset = Dataset(
         train_df,
         grid_sizes=opt.grid_sizes_train,
-        augmentation=get_training_augmentation(), 
+        augmentation=get_validation_augmentation(), 
         preprocessing=get_preprocessing(preprocessing_fn),
         classes=opt.classes,
         pyra = opt.pyra

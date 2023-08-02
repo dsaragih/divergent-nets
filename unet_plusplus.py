@@ -62,7 +62,7 @@ parser.add_argument("--img_dir", help="Directory with images")
 parser.add_argument("--test_dir", help="Directory with test images")
 parser.add_argument("--pkl_path", required=True, help="Path to the pkl file with generated images")
 parser.add_argument("--n_samples", default=1, type=int, help="Number of augmented samples to generate for each image")
-parser.add_argument("--mode", choices=["real_train", "full_syn_train", "aug_syn_train"],  help="Mode to run the code in")
+parser.add_argument("--mode", choices=["real_train", "full_syn_train", "aug_syn_train", "app_syn_train"],  help="Mode to run the code in")
 parser.add_argument("--out_dir", 
                     default="/work/vajira/DATA/EndoCV_2021/temp_checkpoints",
                     help="Main output dierectory")
