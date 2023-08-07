@@ -121,7 +121,8 @@ def augment_train_df(df, pkl_path, n_samples=1):
             print(f"Replacing with {n_samples} augmented images, starting at {os.path.basename(img_paths[0])}")
 
             assert n_samples <= len(img_paths)
-            iters = np.random.randint(0, len(img_paths), size=n_samples)
+            rng = np.random.default_rng()
+            iters = rng.choice(len(img_paths), size=n_samples, replace=False)
             aug_counter += 1
             for i in iters:
                 new_row = pd.Series({"image_path": img_paths[i], "mask_path": mask_paths[i]})
@@ -225,14 +226,14 @@ def prepare_data(opt, preprocessing_fn):
     """Prepare data for training, testing, and validation.
     """
     np.random.seed(0)
-    N_DATA = 128
+    N_DATA = 16
     if opt.mode == "aug_syn_train":
         train_val_df = df_from_img_dir(opt.img_dir)
         # 80, 20 split
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
         # Take small sample for training
-        # train_df = train_df.sample(n=N_DATA, random_state=0)
+        train_df = train_df.sample(n=N_DATA, random_state=0)
         train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
     elif opt.mode == "full_syn_train":
         train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
@@ -262,7 +263,7 @@ def prepare_data(opt, preprocessing_fn):
     train_dataset = Dataset(
         train_df,
         grid_sizes=opt.grid_sizes_train,
-        augmentation=get_validation_augmentation(), 
+        augmentation=get_training_augmentation(), 
         preprocessing=get_preprocessing(preprocessing_fn),
         classes=opt.classes,
         pyra = opt.pyra
