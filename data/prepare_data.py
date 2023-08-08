@@ -127,9 +127,9 @@ def augment_train_df(df, pkl_path, n_samples=1):
             for i in iters:
                 new_row = pd.Series({"image_path": img_paths[i], "mask_path": mask_paths[i]})
                 augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
-        else:
-            new_row = pd.Series({"image_path": row["image_path"], "mask_path": row["mask_path"]})
-            augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
+                
+        new_row = pd.Series({"image_path": row["image_path"], "mask_path": row["mask_path"]})
+        augmented_df = pd.concat([augmented_df, new_row.to_frame().T], ignore_index=True)
 
     print(f"Augmented {aug_counter * n_samples} images.")
     return augmented_df
@@ -239,6 +239,7 @@ def prepare_data(opt, preprocessing_fn):
         train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
+        train_df = train_df.sample(n=N_DATA, random_state=0)
     elif opt.mode == "app_syn_train":
         train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
         # Append real images
@@ -263,7 +264,7 @@ def prepare_data(opt, preprocessing_fn):
     train_dataset = Dataset(
         train_df,
         grid_sizes=opt.grid_sizes_train,
-        augmentation=get_training_augmentation(), 
+        augmentation=get_validation_augmentation(), 
         preprocessing=get_preprocessing(preprocessing_fn),
         classes=opt.classes,
         pyra = opt.pyra

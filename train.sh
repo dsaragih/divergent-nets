@@ -16,7 +16,7 @@ python unet_plusplus.py train \
     --img_dir "/home/daniel/diffusion-gen/guided_diffusion/segmented-images" \
     --pkl_path "/home/daniel/divergent-nets/data/data_files/cc_styled_samples_dil.pkl" \
     --test_dir "/home/daniel/divergent-nets/data/data_files/test-images" \
-    --n_samples 3 \
+    --n_samples 2 \
     --out_dir ./outputs/ \
     --tensorboard_dir ./outputs/ 
 
