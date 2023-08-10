@@ -226,7 +226,7 @@ def prepare_data(opt, preprocessing_fn):
     """Prepare data for training, testing, and validation.
     """
     np.random.seed(0)
-    N_DATA = 16
+    N_DATA = 128
     if opt.mode == "aug_syn_train":
         train_val_df = df_from_img_dir(opt.img_dir)
         # 80, 20 split
@@ -239,7 +239,7 @@ def prepare_data(opt, preprocessing_fn):
         train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
-        train_df = train_df.sample(n=N_DATA, random_state=0)
+        # train_df = train_df.sample(n=N_DATA, random_state=0)
     elif opt.mode == "app_syn_train":
         train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
         # Append real images
@@ -264,7 +264,7 @@ def prepare_data(opt, preprocessing_fn):
     train_dataset = Dataset(
         train_df,
         grid_sizes=opt.grid_sizes_train,
-        augmentation=get_validation_augmentation(), 
+        augmentation=get_training_augmentation() if opt.train_aug else get_validation_augmentation(), 
         preprocessing=get_preprocessing(preprocessing_fn),
         classes=opt.classes,
         pyra = opt.pyra
