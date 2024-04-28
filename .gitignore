@@ -9,7 +9,9 @@ __pycache__/
 *.so
 
 # Training outputs
-outputs/
+**/outputs/*
+**/full-outputs/*
+**/aug-outputs/*
 
 # Data
 **/data_files/

@@ -40,6 +40,7 @@ from data.prepare_data import prepare_data, prepare_test_data
 import pyra_pytorch as pyra
 from utils import dice_coeff, iou_pytorch, visualize
 import copy
+import os
 
 
 #======================================
@@ -119,10 +120,12 @@ opt = parser.parse_args()
 #==========================================
 # Device handling
 #==========================================
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 torch.cuda.set_device(opt.device_id)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 opt.device = DEVICE
+print("Device:", DEVICE)
 
 #===========================================
 # Folder handling

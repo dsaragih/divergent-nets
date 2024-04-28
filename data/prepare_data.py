@@ -152,8 +152,8 @@ def df_from_pkl(pkl_path, n_samples=1):
         img = im[:, :, :3]
         mask = im[:, :, 3]
         mask = np.where(mask > 128, 255, 0).astype(np.uint8)
-        img_path = os.path.join(pkl_path_dir, "masked-images", str(i) + ".jpg")
-        mask_path = os.path.join(pkl_path_dir, "masks", str(i) + ".jpg")
+        img_path = os.path.join(pkl_path_dir, "tmp_dir/masked-images", str(i) + ".jpg")
+        mask_path = os.path.join(pkl_path_dir, "tmp_dir/masks", str(i) + ".jpg")
         # cv2 expects BGR
         cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         # mask is one channel
@@ -252,6 +252,9 @@ def prepare_data(opt, preprocessing_fn):
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
         # Take small sample for training
+        if opt.n_data == -1:
+            # Full train set
+            opt.n_data = len(train_df)
         train_df = train_df.sample(n=opt.n_data, random_state=0)
         
     len_val = len(val_df)
