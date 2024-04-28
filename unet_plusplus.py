@@ -80,7 +80,8 @@ parser.add_argument("--best_checkpoint_name", type=str, default="best_checkpoint
 parser.add_argument("--num_epochs", type=int, default=1, help="Numbe of epochs to train")
 parser.add_argument("--start_epoch", type=int, default=0, help="start epoch of training")
 parser.add_argument("--num_test_samples", type=int, default=5, help="Number of samples to test.")
-parser.add_argument("--n_samples", default=1, type=int, help="Number of augmented samples to generate for each image")
+parser.add_argument("--n_samples", default=1, type=int, help="Number of augmented samples to generate for each image.")
+parser.add_argument("--n_data", default=16, type=int, help="Number of real samples used in augmented training.")
 parser.add_argument("--mode", choices=["real_train", "full_syn_train", "aug_syn_train", "app_syn_train"],  help="Mode to run the code in")
 parser.add_argument("--train_aug", action='store_true', help="To enable standard data augmentation in training")
 

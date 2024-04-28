@@ -226,20 +226,19 @@ def prepare_data(opt, preprocessing_fn):
     """Prepare data for training, testing, and validation.
     """
     np.random.seed(0)
-    N_DATA = 128
     if opt.mode == "aug_syn_train":
         train_val_df = df_from_img_dir(opt.img_dir)
         # 80, 20 split
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
         # Take small sample for training
-        train_df = train_df.sample(n=N_DATA, random_state=0)
+        train_df = train_df.sample(n=opt.n_data, random_state=0)
         train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
     elif opt.mode == "full_syn_train":
         train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
-        # train_df = train_df.sample(n=N_DATA, random_state=0)
+        # train_df = train_df.sample(n=opt.n_data, random_state=0)
     elif opt.mode == "app_syn_train":
         train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
         # Append real images
@@ -253,7 +252,7 @@ def prepare_data(opt, preprocessing_fn):
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
         # Take small sample for training
-        train_df = train_df.sample(n=N_DATA, random_state=0)
+        train_df = train_df.sample(n=opt.n_data, random_state=0)
         
     len_val = len(val_df)
     test_dataset = prepare_test_data(opt, preprocessing_fn, len_val)

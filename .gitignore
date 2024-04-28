@@ -11,6 +11,9 @@ __pycache__/
 # Training outputs
 outputs/
 
+# Data
+**/data_files/
+
 # Distribution / packaging
 .Python
 build/
