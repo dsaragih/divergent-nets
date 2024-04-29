@@ -152,8 +152,8 @@ def df_from_pkl(pkl_path, n_samples=1):
         img = im[:, :, :3]
         mask = im[:, :, 3]
         mask = np.where(mask > 128, 255, 0).astype(np.uint8)
-        img_path = os.path.join(pkl_path_dir, "tmp_dir/masked-images", str(i) + ".jpg")
-        mask_path = os.path.join(pkl_path_dir, "tmp_dir/masks", str(i) + ".jpg")
+        img_path = os.path.join(pkl_path_dir, "masked-images", str(i) + ".jpg")
+        mask_path = os.path.join(pkl_path_dir, "masks", str(i) + ".jpg")
         # cv2 expects BGR
         cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         # mask is one channel
@@ -176,7 +176,7 @@ def get_training_augmentation():
         albu.OneOf(
             [
                 albu.CLAHE(p=1),
-                albu.RandomBrightness(p=1),
+                albu.RandomBrightnessContrast(p=1),
                 albu.RandomGamma(p=1),
             ],
             p=0.9,

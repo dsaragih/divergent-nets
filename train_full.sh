@@ -1,6 +1,9 @@
 #!/bin/bash
+# Initialize n_samples to 1
+n_samples=1
 
-for n_samples in {1..3}; do
+# Loop until n_samples reaches 4
+while [ "$n_samples" -le 3 ]; do
     python unet_plusplus.py train \
         --num_epochs 150 \
         --device_id "$1"  \
@@ -10,6 +13,10 @@ for n_samples in {1..3}; do
         --pkl_path "/root/divergent-nets/data/data_files/cluster_$2/cc_samples_dil.pkl" \
         --n_samples "$n_samples" \
         --train_aug \
-        --out_dir ./full-outputs/ \
-        --tensorboard_dir ./full-outputs/ 
+        --n_data -1 \
+        --out_dir ./outputs-full/ \
+        --tensorboard_dir ./outputs-full/ 
+
+    # Increment n_samples
+    n_samples=$((n_samples + 1))
 done

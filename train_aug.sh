@@ -1,15 +1,21 @@
 #!/bin/bash
+# Initialize n_samples to 1
+n_samples=1
 
-for n_samples in {1..3}; do
+# Loop until n_samples reaches 4
+while [ "$n_samples" -le 3 ]; do
     python unet_plusplus.py train \
-        --num_epochs 150 \
+        --num_epochs 100 \
         --device_id "$1"  \
         --mode "aug_syn_train" \
         --img_dir "/root/divergent-nets/data/data_files/segmented-images" \
         --test_dir "/root/divergent-nets/data/data_files/test-images/cvc" \
-        --pkl_path "/root/divergent-nets/data/data_files/cluster_$2/cc_samples_dil.pkl" \
+        --pkl_path "/root/divergent-nets/data/data_files/cluster_$2/cc_styled_samples_dil.pkl" \
         --n_samples "$n_samples" \
         --n_data 16 \
-        --out_dir "./aug-outputs/" \
-        --tensorboard_dir "./aug-outputs/"
+        --out_dir "./outputs-aug/" \
+        --tensorboard_dir "./outputs-aug/"
+
+    # Increment n_samples
+    n_samples=$((n_samples + 1))
 done

@@ -9,5 +9,5 @@ python unet_plusplus.py train \
     --test_dir "/root/divergent-nets/data/data_files/test-images/cvc" \
     --pkl_path "/root/divergent-nets/data/data_files/cluster_10/cc_samples_dil.pkl" \
     --out_dir ./outputs/ \
-    --n_data -1 \
+    --n_data 16 \
     --tensorboard_dir ./outputs/ 

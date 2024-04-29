@@ -10,7 +10,8 @@ __pycache__/
 
 # Training outputs
 **/outputs/*
-**/full-outputs/*
+**/outputs-full/*
+**/outputs-aug/*
 **/aug-outputs/*
 
 # Data
