@@ -4,7 +4,7 @@
 #SBATCH --time=1:00:0
 
 module load anaconda3/2021.05   
-module load cuda/11.8.0  
+module load cuda/11.4.4 
 module load openblas/0.3.15
 module load gcc/11.3.0  
 module load openmpi/4.1.4+ucx-1.11.2
@@ -14,16 +14,16 @@ n_samples=1
 
 # Loop until n_samples reaches 4
 while [ "$n_samples" -le 3 ]; do
-    python unet_plusplus.py train \
+    python $SCRATCH/divergent-nets/unet_plusplus.py train \
         --num_epochs 100 \
         --mode "aug_syn_train" \
-        --img_dir "~/divergent-nets/data/data_files/segmented-images" \
-        --test_dir "~/divergent-nets/data/data_files/test-images/cvc" \
-        --pkl_path "~/divergent-nets/data/data_files/cluster_$1/cc_styled_samples_dil.pkl" \
+        --img_dir $SCRATCH/divergent-nets/data/data_files/segmented-images \
+        --test_dir $SCRATCH/divergent-nets/data/data_files/test-images/$3 \
+        --pkl_path $SCRATCH/divergent-nets/data/data_files/cluster_$1/cc_styled_samples_dil.pkl \
         --n_samples "$n_samples" \
         --n_data $2 \
-        --out_dir "$SCRATCH/outputs-aug/" \
-        --tensorboard_dir "$SCRATCH/outputs-aug/"
+        --out_dir $SCRATCH/outputs-aug/ \
+        --tensorboard_dir $SCRATCH/outputs-aug/
 
     # Increment n_samples
     n_samples=$((n_samples + 1))
