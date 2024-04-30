@@ -135,7 +135,7 @@ os.makedirs(opt.out_dir, exist_ok=True)
 
 # make subfolder in the output folder 
 py_file_name = opt.py_file.split("/")[-1] # Get python file name (soruce code name)
-CHECKPOINT_DIR = os.path.join(opt.out_dir, py_file_name + "/checkpoints")
+CHECKPOINT_DIR = os.path.join(opt.out_dir, py_file_name, datetime.datetime.now().strftime("run-%Y-%m-%d-%H-%M"))
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
 # make tensorboard subdirectory for the experiment
