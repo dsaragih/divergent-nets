@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pickle
 from data.dataset import Dataset
+import datetime
 
 def df_from_csv_file_array(csv_file_arrya):
 
@@ -60,7 +61,7 @@ def _load_all_pkl_images(pkl_path, n_samples=1):
         images *= 255
     return images
 
-def _load_given_pkl_image(pkl_path, img_path, images=None):
+def _load_given_pkl_image(pkl_path, img_path, images=None, tmp_dir_path=None):
     """
     Given original image path, load the generated images from the pkl file and return the corresponding batch of images
     """
@@ -85,6 +86,17 @@ def _load_given_pkl_image(pkl_path, img_path, images=None):
     if ims is None:
         raise ValueError("Image not found in pickle file.")
     
+    if tmp_dir_path:
+        img_dir_path = tmp_dir_path.replace("XXX", "images")
+        mask_dir_path = tmp_dir_path.replace("XXX", "masks")
+    else:
+        img_dir_path = os.path.join(pkl_path_dir, "masked-images")
+        mask_dir_path = os.path.join(pkl_path_dir, "masks")
+    if not os.path.exists(img_dir_path):
+        os.makedirs(img_dir_path)
+    if not os.path.exists(mask_dir_path):
+        os.makedirs(mask_dir_path)
+    # print("Ims.shape ", ims.shape)
     # Paths like (i.jpg, i+1.jpg, ..., i+n-1.jpg), n = imgs.shape[0]
     img_paths = []
     mask_paths = []
@@ -94,8 +106,9 @@ def _load_given_pkl_image(pkl_path, img_path, images=None):
         img = im[:, :, :3]
         mask = im[:, :, 3]
         mask = np.where(mask > 128, 255, 0).astype(np.uint8)
-        img_path = os.path.join(pkl_path_dir, "masked-images", str(idx+i) + ".jpg")
-        mask_path = os.path.join(pkl_path_dir, "masks", str(idx+i) + ".jpg")
+        
+        img_path = os.path.join(img_dir_path, str(idx + i) + ".jpg")
+        mask_path = os.path.join(mask_dir_path, str(idx + i) + ".jpg")
         # cv2 expects BGR
         cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         # mask is one channel
@@ -105,7 +118,7 @@ def _load_given_pkl_image(pkl_path, img_path, images=None):
     return img_paths, mask_paths
     
 
-def augment_train_df(df, pkl_path, n_samples=1):
+def augment_train_df(df, pkl_path, tmp_dir_path=None, n_samples=1):
     """
     For each image in df, there's a 50% chance it will be replaced with {n_samples} augmented images.
     """
@@ -113,10 +126,12 @@ def augment_train_df(df, pkl_path, n_samples=1):
     aug_counter = 0
     with open(pkl_path, "rb") as f:
         images = pickle.load(f)
+    
     for i, row in df.iterrows():
         # 50% chance to augment
         if np.random.random() < 0.5:
-            img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"], images)
+            img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"], images, tmp_dir_path=tmp_dir_path)
+            # print("Img_paths: ", img_paths)
             print(f"Augmenting image {os.path.basename(row['image_path'])}")
             print(f"Replacing with {n_samples} augmented images, starting at {os.path.basename(img_paths[0])}")
 
@@ -136,7 +151,7 @@ def augment_train_df(df, pkl_path, n_samples=1):
 
     
 
-def df_from_pkl(pkl_path, n_samples=1):
+def df_from_pkl(pkl_path, n_samples=1, tmp_dir_path=None):
     """pkl_path contains a numpy array of shape (N, H, W, 4), where
     the last dimension is the mask. The first three dimensions are the image.
 
@@ -147,13 +162,24 @@ def df_from_pkl(pkl_path, n_samples=1):
     pkl_path_dir = os.path.dirname(pkl_path)
     df = pd.DataFrame(columns=["image_path", "mask_path"])
     images = _load_all_pkl_images(pkl_path, n_samples)
+    if tmp_dir_path:
+        img_dir_path = tmp_dir_path.replace("XXX", "images")
+        mask_dir_path = tmp_dir_path.replace("XXX", "masks")
+    else:
+        img_dir_path = os.path.join(pkl_path_dir, "masked-images")
+        mask_dir_path = os.path.join(pkl_path_dir, "masks")
+    if not os.path.exists(img_dir_path):
+        os.makedirs(img_dir_path)
+    if not os.path.exists(mask_dir_path):
+        os.makedirs(mask_dir_path)
 
     for i, im in enumerate(images):
         img = im[:, :, :3]
         mask = im[:, :, 3]
         mask = np.where(mask > 128, 255, 0).astype(np.uint8)
-        img_path = os.path.join(pkl_path_dir, "masked-images", str(i) + ".jpg")
-        mask_path = os.path.join(pkl_path_dir, "masks", str(i) + ".jpg")
+        
+        img_path = os.path.join(img_dir_path, str(i) + ".jpg")
+        mask_path = os.path.join(mask_dir_path, str(i) + ".jpg")
         # cv2 expects BGR
         cv2.imwrite(img_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         # mask is one channel
@@ -226,16 +252,19 @@ def prepare_data(opt, preprocessing_fn):
     """Prepare data for training, testing, and validation.
     """
     np.random.seed(0)
+    dir_path = None
     if opt.mode == "aug_syn_train":
+        dir_path = os.path.join(os.path.dirname(opt.pkl_path), datetime.datetime.now().strftime("XXX-%Y-%m-%d-%H-%M"))
         train_val_df = df_from_img_dir(opt.img_dir)
         # 80, 20 split
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
         # Take small sample for training
         train_df = train_df.sample(n=opt.n_data, random_state=0)
-        train_df = augment_train_df(train_df, opt.pkl_path, n_samples=opt.n_samples)
+        train_df = augment_train_df(train_df, opt.pkl_path, tmp_dir_path=dir_path, n_samples=opt.n_samples)
     elif opt.mode == "full_syn_train":
-        train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples)
+        dir_path = os.path.join(os.path.dirname(opt.pkl_path), datetime.datetime.now().strftime("XXX-%Y-%m-%d-%H-%M"))
+        train_val_df = df_from_pkl(opt.pkl_path, n_samples=opt.n_samples, tmp_dir_path=dir_path)
         train_df = train_val_df.sample(frac=0.8, random_state=0)
         val_df = train_val_df.drop(train_df.index)
         # train_df = train_df.sample(n=opt.n_data, random_state=0)
@@ -292,7 +321,7 @@ def prepare_data(opt, preprocessing_fn):
     print("dataset val=", len(valid_dataset))
     print("Test dataset size=", len(test_dataset))
     print("train_loader shape:", next(iter(train_loader))[0].shape)
-    return train_loader, valid_loader, test_dataset
+    return train_loader, valid_loader, test_dataset, dir_path
 
 def prepare_test_data(opt, preprocessing_fn, n):
 
