@@ -23,8 +23,8 @@ while [ "$n_samples" -le 3 ]; do
         --n_samples "$n_samples" \
         --train_aug \
         --n_data $2 \
-        --out_dir $SCRATCH/outputs-full/ \
-        --tensorboard_dir $SCRATCH/outputs-full/ 
+        --out_dir $SCRATCH/divergent-nets/outputs-full/ \
+        --tensorboard_dir $SCRATCH/divergent-nets/outputs-full/ 
 
     # Increment n_samples
     n_samples=$((n_samples + 1))

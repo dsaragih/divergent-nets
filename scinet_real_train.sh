@@ -16,6 +16,6 @@ python $SCRATCH/divergent-nets/unet_plusplus.py train \
     --img_dir $SCRATCH/divergent-nets/data/data_files/segmented-images \
     --test_dir $SCRATCH/divergent-nets/data/data_files/test-images/$2 \
     --pkl_path $SCRATCH/divergent-nets/data/data_files/cluster_10/cc_samples_dil.pkl \
-    --out_dir $SCRATCH/outputs/ \
+    --out_dir $SCRATCH/divergent-nets/outputs/ \
     --n_data $1 \
-    --tensorboard_dir $SCRATCH/outputs/ 
+    --tensorboard_dir $SCRATCH/divergent-nets/outputs/ 

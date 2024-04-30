@@ -22,8 +22,8 @@ while [ "$n_samples" -le 3 ]; do
         --pkl_path $SCRATCH/divergent-nets/data/data_files/cluster_$1/cc_styled_samples_dil.pkl \
         --n_samples "$n_samples" \
         --n_data $2 \
-        --out_dir $SCRATCH/outputs-aug/ \
-        --tensorboard_dir $SCRATCH/outputs-aug/
+        --out_dir $SCRATCH/divergent-nets/outputs-aug/ \
+        --tensorboard_dir $SCRATCH/divergent-nets/outputs-aug/
 
     # Increment n_samples
     n_samples=$((n_samples + 1))

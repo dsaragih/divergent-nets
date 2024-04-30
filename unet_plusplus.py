@@ -136,11 +136,18 @@ os.makedirs(opt.out_dir, exist_ok=True)
 # make subfolder in the output folder 
 py_file_name = opt.py_file.split("/")[-1] # Get python file name (soruce code name)
 CHECKPOINT_DIR = os.path.join(opt.out_dir, py_file_name, datetime.datetime.now().strftime("run-%Y-%m-%d-%H-%M"))
-os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+# If the folder exists, append a number to the folder name
+if os.path.exists(CHECKPOINT_DIR):
+    i = 1
+    while os.path.exists(CHECKPOINT_DIR + "_"+str(i)):
+        i += 1
+    CHECKPOINT_DIR = CHECKPOINT_DIR + "_"+str(i)
+    os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+
 
 # make tensorboard subdirectory for the experiment
 tensorboard_exp_dir = os.path.join(opt.tensorboard_dir, py_file_name, datetime.datetime.now().strftime("tb-%Y-%m-%d-%H-%M"))
-os.makedirs(tensorboard_exp_dir, exist_ok=True)
+tensorboard_exp_dir = CHECKPOINT_DIR
 print("Tensorboard directory:", tensorboard_exp_dir)
 #==========================================
 # Tensorboard
@@ -362,7 +369,7 @@ def do_test(opt):
 
     test_epoch =  checkpoint_dict["epoch"]
     best_model = checkpoint_dict["model"]
-
+    print("Model path:", os.path.join(CHECKPOINT_DIR, opt.best_checkpoint_name))
     print("Model best epoch:", test_epoch)
 
     preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
@@ -413,24 +420,6 @@ def check_test_score(opt):
     
     test_dataloader = DataLoader(test_dataset, num_workers=4)
 
-    loss = smp_losses.DiceLoss()
-    # Testing with two class layers
-    metrics = [
-        #smp_metrics.IoU(threshold=0.5),
-        smp_metrics.IoU(threshold=0.5, ignore_channels=None),
-    ]
-
-    test_epoch = smp_train.ValidEpoch(
-        model=best_model,
-        loss=loss,
-        metrics=metrics,
-        device=DEVICE,
-    )
-
-    logs = test_epoch.run(test_dataloader)
-    print("logs=", str(logs))
-    writer.add_text(f"{opt.py_file}-test-score", str(logs), global_step=test_best_epoch)
-
     # Testing with only class layer 1 (polyps)
     loss = smp_losses.DiceLoss(ignore_channels=[0])
     metrics = [
@@ -445,30 +434,11 @@ def check_test_score(opt):
         device=DEVICE,
     )
 
-    logs = test_epoch.run(test_dataloader)
-    print("logs=", str(logs))
-    writer.add_text(f"{opt.py_file}-test-score-ignore-channel-0", str(logs), global_step=test_best_epoch)
+    for _ in range(3):
+        logs = test_epoch.run(test_dataloader)
+        print("logs=", str(logs))
+        writer.add_text(f"{opt.py_file}-test-score-ignore-channel-0", str(logs), global_step=test_best_epoch)
 
-
-
-    # Testing with only class layer 0 (BG)
-
-    loss = smp_losses.DiceLoss(ignore_channels=[1])
-    metrics = [
-        #smp_metrics.IoU(threshold=0.5),
-        smp_metrics.IoU(threshold=0.5, ignore_channels=[1]),
-    ]
-
-    test_epoch = smp_train.ValidEpoch(
-        model=best_model,
-        loss=loss,
-        metrics=metrics,
-        device=DEVICE,
-    )
-
-    logs = test_epoch.run(test_dataloader)
-    print("logs=", str(logs))
-    writer.add_text(f"{opt.py_file}-test-score-ignore-channel-1", str(logs), global_step=test_best_epoch)
 
 
     

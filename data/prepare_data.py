@@ -92,10 +92,27 @@ def _load_given_pkl_image(pkl_path, img_path, images=None, tmp_dir_path=None):
     else:
         img_dir_path = os.path.join(pkl_path_dir, "masked-images")
         mask_dir_path = os.path.join(pkl_path_dir, "masks")
+    # If already exists, append a number to the end
     if not os.path.exists(img_dir_path):
+        os.makedirs(img_dir_path)
+    else:
+        i = 1
+        img_dir_path += str(i)
+        while os.path.exists(img_dir_path):
+            i += 1
+            img_dir_path = img_dir_path[:-1] + str(i)
         os.makedirs(img_dir_path)
     if not os.path.exists(mask_dir_path):
         os.makedirs(mask_dir_path)
+    else:
+        i = 1
+        mask_dir_path += str(i)
+        while os.path.exists(mask_dir_path):
+            i += 1
+            mask_dir_path = mask_dir_path[:-1] + str(i)
+        os.makedirs(mask_dir_path)
+    print("Image directory path: ", img_dir_path)
+    print("Mask directory path: ", mask_dir_path)
     # print("Ims.shape ", ims.shape)
     # Paths like (i.jpg, i+1.jpg, ..., i+n-1.jpg), n = imgs.shape[0]
     img_paths = []
@@ -168,11 +185,28 @@ def df_from_pkl(pkl_path, n_samples=1, tmp_dir_path=None):
     else:
         img_dir_path = os.path.join(pkl_path_dir, "masked-images")
         mask_dir_path = os.path.join(pkl_path_dir, "masks")
+    # If already exists, append a number to the end
     if not os.path.exists(img_dir_path):
+        os.makedirs(img_dir_path)
+    else:
+        i = 1
+        img_dir_path += str(i)
+        while os.path.exists(img_dir_path):
+            i += 1
+            img_dir_path = img_dir_path[:-1] + str(i)
         os.makedirs(img_dir_path)
     if not os.path.exists(mask_dir_path):
         os.makedirs(mask_dir_path)
-
+    else:
+        i = 1
+        mask_dir_path += str(i)
+        while os.path.exists(mask_dir_path):
+            i += 1
+            mask_dir_path = mask_dir_path[:-1] + str(i)
+        os.makedirs(mask_dir_path)
+    print("Image directory path: ", img_dir_path)
+    print("Mask directory path: ", mask_dir_path)
+    
     for i, im in enumerate(images):
         img = im[:, :, :3]
         mask = im[:, :, 3]

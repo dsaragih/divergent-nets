@@ -10,7 +10,7 @@ while [ "$n_samples" -le 3 ]; do
         --mode "full_syn_train" \
         --img_dir "/root/divergent-nets/data/data_files/segmented-images" \
         --test_dir "/root/divergent-nets/data/data_files/test-images/cvc" \
-        --pkl_path "/root/divergent-nets/data/data_files/cluster_$2/cc_samples_dil.pkl" \
+        --pkl_path "/root/divergent-nets/data/data_files/cluster_10/cc_samples_dil.pkl" \
         --n_samples "$n_samples" \
         --train_aug \
         --n_data -1 \
