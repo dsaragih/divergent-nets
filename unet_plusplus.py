@@ -413,28 +413,28 @@ def check_test_score(opt):
 
     print("Model best epoch:", test_best_epoch)
     
-    
-
-    preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
-    # test_dataset = prepare_test_data(opt, preprocessing_fn=preprocessing_fn) if test_dataset is None else test_dataset
-    
-    test_dataloader = DataLoader(test_dataset, num_workers=4)
-
-    # Testing with only class layer 1 (polyps)
-    loss = smp_losses.DiceLoss(ignore_channels=[0])
-    metrics = [
-        #smp_metrics.IoU(threshold=0.5),
-        smp_metrics.IoU(threshold=0.5, ignore_channels=[0]),
-    ]
-
-    test_epoch = smp_train.ValidEpoch(
-        model=best_model,
-        loss=loss,
-        metrics=metrics,
-        device=DEVICE,
-    )
-
     for _ in range(3):
+
+        preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
+        test_dataset = prepare_test_data(opt, preprocessing_fn=None, n=200)
+        
+        test_dataloader = DataLoader(test_dataset, num_workers=4)
+
+        # Testing with only class layer 1 (polyps)
+        loss = smp_losses.DiceLoss(ignore_channels=[0])
+        metrics = [
+            #smp_metrics.IoU(threshold=0.5),
+            smp_metrics.IoU(threshold=0.5, ignore_channels=[0]),
+        ]
+
+        test_epoch = smp_train.ValidEpoch(
+            model=best_model,
+            loss=loss,
+            metrics=metrics,
+            device=DEVICE,
+        )
+
+    
         logs = test_epoch.run(test_dataloader)
         print("logs=", str(logs))
         writer.add_text(f"{opt.py_file}-test-score-ignore-channel-0", str(logs), global_step=test_best_epoch)

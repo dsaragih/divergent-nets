@@ -8,6 +8,7 @@ import numpy as np
 import pickle
 from data.dataset import Dataset
 import datetime
+import random
 
 def df_from_csv_file_array(csv_file_arrya):
 
@@ -20,7 +21,7 @@ def df_from_csv_file_array(csv_file_arrya):
 
     return df
 
-def df_from_img_dir(img_dir_path, n=None):
+def df_from_img_dir(img_dir_path, n=None, shuffle=False):
     # img_dir_path contains two directories: images and masks
     # each directory contains images with the same name
     # e.g. img_dir_path/images/1.png and img_dir_path/masks/1.png
@@ -28,7 +29,13 @@ def df_from_img_dir(img_dir_path, n=None):
 
     df = pd.DataFrame(columns=["image_path", "mask_path"])
     mask_path = os.path.join(img_dir_path, "masks")
-    dir_list = list(sorted(os.listdir(os.path.join(img_dir_path, "masked-images"))))
+    # Randomize dir_list
+    dir_list = os.listdir(os.path.join(img_dir_path, "masked-images"))
+    if shuffle:
+        random.shuffle(dir_list)
+    else:
+        dir_list.sort()
+    
     if n is not None:
         dir_list = dir_list[:n]
     for img in dir_list:
@@ -61,7 +68,7 @@ def _load_all_pkl_images(pkl_path, n_samples=1):
         images *= 255
     return images
 
-def _load_given_pkl_image(pkl_path, img_path, images=None, tmp_dir_path=None):
+def _load_given_pkl_image(pkl_path, img_path, img_dir_path, mask_dir_path, images=None):
     """
     Given original image path, load the generated images from the pkl file and return the corresponding batch of images
     """
@@ -69,13 +76,13 @@ def _load_given_pkl_image(pkl_path, img_path, images=None, tmp_dir_path=None):
         with open(pkl_path, "rb") as f:
             images = pickle.load(f)
 
-    pkl_path_dir = os.path.dirname(pkl_path)
     # Return key with matching basename
     img_path = os.path.basename(img_path)
     ims = None
 
     # This makes sure that the images do not conflict with each other
     idx = 0
+
     for path, imgs in images.items():
         # img_path is the basename of the path
         if img_path == os.path.basename(path):
@@ -86,33 +93,7 @@ def _load_given_pkl_image(pkl_path, img_path, images=None, tmp_dir_path=None):
     if ims is None:
         raise ValueError("Image not found in pickle file.")
     
-    if tmp_dir_path:
-        img_dir_path = tmp_dir_path.replace("XXX", "images")
-        mask_dir_path = tmp_dir_path.replace("XXX", "masks")
-    else:
-        img_dir_path = os.path.join(pkl_path_dir, "masked-images")
-        mask_dir_path = os.path.join(pkl_path_dir, "masks")
-    # If already exists, append a number to the end
-    if not os.path.exists(img_dir_path):
-        os.makedirs(img_dir_path)
-    else:
-        i = 1
-        img_dir_path += str(i)
-        while os.path.exists(img_dir_path):
-            i += 1
-            img_dir_path = img_dir_path[:-1] + str(i)
-        os.makedirs(img_dir_path)
-    if not os.path.exists(mask_dir_path):
-        os.makedirs(mask_dir_path)
-    else:
-        i = 1
-        mask_dir_path += str(i)
-        while os.path.exists(mask_dir_path):
-            i += 1
-            mask_dir_path = mask_dir_path[:-1] + str(i)
-        os.makedirs(mask_dir_path)
-    print("Image directory path: ", img_dir_path)
-    print("Mask directory path: ", mask_dir_path)
+    
     # print("Ims.shape ", ims.shape)
     # Paths like (i.jpg, i+1.jpg, ..., i+n-1.jpg), n = imgs.shape[0]
     img_paths = []
@@ -143,11 +124,43 @@ def augment_train_df(df, pkl_path, tmp_dir_path=None, n_samples=1):
     aug_counter = 0
     with open(pkl_path, "rb") as f:
         images = pickle.load(f)
-    
+
+    # Setup directories
+    pkl_path_dir = os.path.dirname(pkl_path)
+    if tmp_dir_path:
+        img_dir_path = tmp_dir_path.replace("XXX", "images")
+        mask_dir_path = tmp_dir_path.replace("XXX", "masks")
+    else:
+        img_dir_path = os.path.join(pkl_path_dir, "masked-images")
+        mask_dir_path = os.path.join(pkl_path_dir, "masks")
+    # If already exists, append a number to the end
+    if not os.path.exists(img_dir_path):
+        os.makedirs(img_dir_path)
+    else:
+        i = 1
+        img_dir_path += str(i)
+        while os.path.exists(img_dir_path):
+            i += 1
+            img_dir_path = img_dir_path[:-1] + str(i)
+        os.makedirs(img_dir_path)
+    if not os.path.exists(mask_dir_path):
+        os.makedirs(mask_dir_path)
+    else:
+        i = 1
+        mask_dir_path += str(i)
+        while os.path.exists(mask_dir_path):
+            i += 1
+            mask_dir_path = mask_dir_path[:-1] + str(i)
+        os.makedirs(mask_dir_path)
+    print("Image directory path: ", img_dir_path)
+    print("Mask directory path: ", mask_dir_path)
+
+    # For each row in df, augment with n_samples images w.p. 0.5
+
     for i, row in df.iterrows():
         # 50% chance to augment
         if np.random.random() < 0.5:
-            img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"], images, tmp_dir_path=tmp_dir_path)
+            img_paths, mask_paths = _load_given_pkl_image(pkl_path, row["image_path"], img_dir_path, mask_dir_path, images)
             # print("Img_paths: ", img_paths)
             print(f"Augmenting image {os.path.basename(row['image_path'])}")
             print(f"Replacing with {n_samples} augmented images, starting at {os.path.basename(img_paths[0])}")
@@ -206,7 +219,7 @@ def df_from_pkl(pkl_path, n_samples=1, tmp_dir_path=None):
         os.makedirs(mask_dir_path)
     print("Image directory path: ", img_dir_path)
     print("Mask directory path: ", mask_dir_path)
-    
+
     for i, im in enumerate(images):
         img = im[:, :, :3]
         mask = im[:, :, 3]
@@ -349,7 +362,6 @@ def prepare_data(opt, preprocessing_fn):
     train_loader = DataLoader(train_dataset, batch_size=opt.bs, shuffle=True, num_workers=6)
     valid_loader = DataLoader(valid_dataset, batch_size=opt.val_bs, shuffle=False, num_workers=3)
 
-    
    
     print("dataset train=", len(train_dataset))
     print("dataset val=", len(valid_dataset))
@@ -359,7 +371,7 @@ def prepare_data(opt, preprocessing_fn):
 
 def prepare_test_data(opt, preprocessing_fn, n):
 
-    test_df = df_from_img_dir(opt.test_dir, 200)
+    test_df = df_from_img_dir(opt.test_dir, 200, shuffle=True)
 
     # test dataset without transformations for image visualization
     test_dataset = Dataset(
