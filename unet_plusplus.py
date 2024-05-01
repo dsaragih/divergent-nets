@@ -413,7 +413,7 @@ def check_test_score(opt):
 
     print("Model best epoch:", test_best_epoch)
     
-    for _ in range(3):
+    for j in range(3):
 
         preprocessing_fn = smp.encoders.get_preprocessing_fn(opt.encoder, opt.encoder_weights)
         test_dataset = prepare_test_data(opt, preprocessing_fn=None, n=200)
@@ -437,7 +437,7 @@ def check_test_score(opt):
     
         logs = test_epoch.run(test_dataloader)
         print("logs=", str(logs))
-        writer.add_text(f"{opt.py_file}-test-score-ignore-channel-0", str(logs), global_step=test_best_epoch)
+        writer.add_text(f"{opt.py_file}-test-score-ignore-channel-0-{j}", str(logs), global_step=test_best_epoch)
 
 
 

@@ -6,13 +6,15 @@ n_samples=1
 while [ "$n_samples" -le 3 ]; do
     python unet_plusplus.py train \
         --num_epochs 150 \
-        --device_id "$1"  \
+        --device_id 0  \
         --mode "full_syn_train" \
         --img_dir "/root/divergent-nets/data/data_files/segmented-images" \
         --test_dir "/root/divergent-nets/data/data_files/test-images/polyp-gen" \
         --pkl_path "/root/divergent-nets/data/data_files/GAN_dict.pkl" \
         --n_samples "$n_samples" \
         --train_aug \
+        --bs 32 \
+        --val_bs 32 \
         --n_data -1 \
         --out_dir ./outputs-full/ \
         --tensorboard_dir ./outputs-full/ 
