@@ -169,12 +169,13 @@ def _prep_data_file(pkl_path, tmp_dir_path):
         masks_dir = os.path.join(pkl_dir, "masks")
 
         # Loop over the files in the directories and delete them
-        for file in os.listdir(masked_dir):
-            img_count += 1
-            os.remove(os.path.join(masked_dir, file))
-        for file in os.listdir(masks_dir):
-            mask_count += 1
-            os.remove(os.path.join(masks_dir, file))
+        if os.path.exists(masked_dir) and os.path.exists(masks_dir):
+            for file in os.listdir(masked_dir):
+                img_count += 1
+                os.remove(os.path.join(masked_dir, file))
+            for file in os.listdir(masks_dir):
+                mask_count += 1
+                os.remove(os.path.join(masks_dir, file))
     else:
         # We want to clear tmp_dir_path
         masked_dir = tmp_dir_path.replace("XXX", "images")
